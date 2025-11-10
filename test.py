@@ -88,9 +88,11 @@ print(f"Accuracy: {100 * correct / total:.2f}%")
 
 import torchvision.models as models
 
+'''
 model = models.resnet18(weights='IMAGENET1K_V1')
 model.fc = nn.Linear(model.fc.in_features, 100)
 model.to(device)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0005)
+'''
