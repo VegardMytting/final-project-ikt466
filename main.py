@@ -19,7 +19,7 @@ console = Console()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 console.print(f"[#e5c07b]![/#e5c07b] Using device: [#61afef]{device}[/#61afef]")
 
-def set_seed(seed):
+def set_seed(seed: int):
   torch.manual_seed(seed)
   torch.cuda.manual_seed_all(seed)
   random.seed(seed)
@@ -50,6 +50,12 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False,
 def resnet18():
   from torchvision.models import resnet18, ResNet18_Weights
   model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
+  model.fc = nn.Linear(model.fc.in_features, 100)
+  return model
+
+def resnet34():
+  from torchvision.models import resnet34, ResNet34_Weights
+  model = resnet34(weights=ResNet34_Weights.IMAGENET1K_V1)
   model.fc = nn.Linear(model.fc.in_features, 100)
   return model
 
@@ -89,12 +95,6 @@ def convnext_tiny():
   model.classifier[2] = nn.Linear(model.classifier[2].in_features, 100)
   return model
 
-def vit_b16():
-  from torchvision.models import vit_b_16, ViT_B_16_Weights
-  model = vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
-  model.heads.head = nn.Linear(model.heads.head.in_features, 100)
-  return model
-
 def wideresnet2810():
   from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
   model = wide_resnet50_2(weights=Wide_ResNet50_2_Weights.IMAGENET1K_V1)
@@ -105,33 +105,61 @@ def customcnn():
   class CustomCNN(nn.Module):
     def __init__(self):
       super().__init__()
-      self.conv1 = nn.Conv2d(3, 64, 3, padding=1)
-      self.conv2 = nn.Conv2d(64, 128, 3, padding=1)
-      self.conv3 = nn.Conv2d(128, 256, 3, padding=1)
-      self.pool = nn.MaxPool2d(2, 2)
-      self.fc1 = nn.Linear(256 * 4 * 4, 512)
-      self.fc2 = nn.Linear(512, 100)
+      
+      self.features = nn.Sequential(
+        nn.Conv2d(3, 64, 3, padding=1),
+        nn.BatchNorm2d(64),
+        nn.ReLU(),
+        nn.Conv2d(64, 64, 3, padding=1),
+        nn.BatchNorm2d(64),
+        nn.ReLU(),
+        nn.MaxPool2d(2, 2),
+        
+        nn.Conv2d(64, 128, 3, padding=1),
+        nn.BatchNorm2d(128),
+        nn.ReLU(),
+        nn.Conv2d(128, 128, 3, padding=1),
+        nn.BatchNorm2d(128),
+        nn.ReLU(),
+        nn.MaxPool2d(2, 2),
+        
+        nn.Conv2d(128, 256, 3, padding=1),
+        nn.BatchNorm2d(256),
+        nn.ReLU(),
+        nn.Conv2d(256, 256, 3, padding=1),
+        nn.BatchNorm2d(256),
+        nn.ReLU(),
+        nn.MaxPool2d(2, 2),
+        
+        nn.AdaptiveAvgPool2d((1, 1))
+      )
+
+      self.classifier = nn.Sequential(
+        nn.Dropout(0.5),
+        nn.Linear(256, 512),
+        nn.ReLU(),
+        nn.Dropout(0.5),
+        nn.Linear(512, 100)
+      )
 
     def forward(self, x):
-      x = self.pool(F.relu(self.conv1(x)))
-      x = self.pool(F.relu(self.conv2(x)))
-      x = self.pool(F.relu(self.conv3(x)))
+      x = self.features(x)
       x = x.view(x.size(0), -1)
-      x = F.relu(self.fc1(x))
-      return self.fc2(x)
-
+      x = self.classifier(x)
+      return x
+    
   return CustomCNN()
 
 exporters = {
   "Custom CNN": customcnn,
   "ResNet18": resnet18,
+  "ResNet34": resnet34,
   "ResNet50": resnet50,
   "ResNeXt50-32x4d": resnext50,
   "EfficientNet-B0": efficientnetb0,
   "MobileNetV3-Large": mobilenetv3_large,
   "ShuffleNetV2-1.0": shufflenetv2,
   "ConvNeXt-Tiny": convnext_tiny,
-  "ViT-B/16": vit_b16,
   "WideResNet-50-2": wideresnet2810,
 }
 
@@ -141,10 +169,12 @@ model_choice = inquirer.select(
 ).execute()
 
 def build_model(name):
-  return exporters[name]()
+  if name in exporters:
+    return exporters[name]()
+  raise KeyError(f"Model '{name}' not supported.")
   
 accuracies = []
-console.print(f"[bold cyan]\nRunning {RUNS} training runs for {model_choice}...[/bold cyan]")
+console.print(f"[#e5c07b]![/#e5c07b] Running [#61afef]{RUNS}[/#61afef] training rounds for [#61afef]{model_choice}[/#61afef][white]...[/white]")
 
 for run in tqdm(range(RUNS), desc="Runs", position=0, leave=False):
   set_seed(run)
@@ -194,9 +224,6 @@ for run in tqdm(range(RUNS), desc="Runs", position=0, leave=False):
 mean_acc = statistics.mean(accuracies)
 std_acc = statistics.stdev(accuracies)
 
-console.print("\n[bold cyan]===== FINAL SUMMARY =====[/bold cyan]")
-for i, acc in enumerate(accuracies):
-  console.print(f"Run {i+1}: {acc:.2f}%")
-
-console.print(f"\n[bold green]Mean accuracy: {mean_acc:.2f}%[/bold green]")
-console.print(f"[bold magenta]Std deviation: {std_acc:.2f}[/bold magenta]")
+console.print(f"\n[#e5c07b]![/#e5c07b] Accuracies: \t\t{accuracies}")
+console.print(f"[#e5c07b]![/#e5c07b] Mean accuracy: [cyan]\t{mean_acc:.2f}%[/cyan]")
+console.print(f"[#e5c07b]![/#e5c07b] Std deviation: [cyan]\t{std_acc:.2f}[/cyan]")
