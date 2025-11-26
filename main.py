@@ -50,7 +50,6 @@ activation_function_registry = {
   "GELU": nn.GELU,
   "Sigmoid": nn.Sigmoid,
   "Tanh": nn.Tanh,
-  "Softmax": nn.Softmax(dim=1),
   "Mish": nn.Mish
 }
 
