@@ -50,6 +50,7 @@ activation_function_registry = {
   "GELU": nn.GELU,
   "Sigmoid": nn.Sigmoid,
   "Tanh": nn.Tanh,
+  "Softmax": nn.Softmax(dim=1),
   "Mish": nn.Mish
 }
 
@@ -198,7 +199,7 @@ baseline_registry = {
 }
 
 preprocessing_mode = inquirer.select(
-  message="Select data preprocessing:",
+  message="Select Data Preprocessing:",
   choices=[
     "Augmentation & Normalize",
     "Augmentation",
@@ -256,18 +257,30 @@ def get_transforms(mode):
   
   return transform_train, transform_test
 
-def init_data(mode="Augmentation & Normalize"):
+batch_size = inquirer.select(
+  message="Select Batch Size:",
+  choices=[
+    32,
+    64,
+    128,
+    256,
+    512
+  ],
+  default=128
+).execute()
+
+def init_data(mode="Augmentation & Normalize", batch_size=128):
   transform_train, transform_test = get_transforms(mode)
 
   trainset = torchvision.datasets.CIFAR100(root="./data", train=True, download=True, transform=transform_train)
   testset = torchvision.datasets.CIFAR100(root="./data", train=False, download=True, transform=transform_test)
 
-  trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
+  trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
   testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
 
   return trainset, trainloader, testset, testloader
 
-trainset, trainloader, testset, testloader = init_data(mode=preprocessing_mode)
+trainset, trainloader, testset, testloader = init_data(mode=preprocessing_mode, batch_size=batch_size)
 
 def train_cnn(model_name, optimizer_name, learning_rate, use_transfer_learning = False, cnn_activation_function = None):
   accuracies = []
