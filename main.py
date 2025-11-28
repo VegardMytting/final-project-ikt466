@@ -433,6 +433,8 @@ if model_type == "Deep Learning (CNNs)":
       message="Select a CNN Architecture:",
       choices=list(cnn_registry.keys()),
     ).execute()
+    
+  use_transfer_learning = True
   
   if run_all or model_choice != "Custom CNN":
     use_transfer_learning = inquirer.confirm(
@@ -469,9 +471,9 @@ else:
     choices=list(baseline_registry.keys()),
   ).execute()
 
-  pca_components = float(inquirer.text(
+  pca_components = int(inquirer.number(
     message="Select PCA n_components:",
-    default="0.95"
+    default=200
   ).execute())
   
   train_baseline(model_choice, pca_components)
